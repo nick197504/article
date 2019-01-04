@@ -1,0 +1,265 @@
+日志：slf4j+logback 的配置与使用
+2018年01月06日 14:00:58 独孤小标 阅读数：10486
+ 版权声明：本文为博主原创文章，未经博主允许不得转载。	https://blog.csdn.net/duguxiaobiao/article/details/78988409
+1. 常用日志组件和选择
+java开发日志处理是发现和调试bug所 必不可少的，那么现在企业中常用的日志组件有哪些呢，JCL 、 JUL、  SLF4j、Log4j、  Log4j2 、 Logback、 jboss-loggin 等，一般日志是配套出现的，一般是由  一个日志门面 和 一个日志实现 配套使用，
+那么 组成以下结构
+日志门面 日志实现
+    JCL      log4j
+  SLF4j    log4j2
+       jboss-loggin   logback
+      JUL
+
+那么，下面开始 一个个排除
+JUL：实现简陋，很多地方受到开发者的吐槽，所以 首先排除
+
+jboss-loggin：自诞生之初，就不是为了服务大众，不受到什么青睐，所以 也排除
+
+log4j：log4j虽然声名显赫，但是在这里 首先要知道一点  slf4j 、log4j、logback 这三个框架都是同一个作者ceki 开发的，作者说 log4j 太烂，不想修改了，因此开发了 升级版的 log4j，也就是 logback ，因此在这里 我们划掉 log4j
+
+log4j2：log4j2不是log4j的升级版，而是apache开发的，log4j2 该框架很优秀，正是因为太优秀，设计时与 部分框架对其支持的程度有限，不一定会什么时候踩坑，而log4j2在设计时的性能是优于logback的，但是 99%的开发者不会有机会体会到这种差距，因为  logback也很优秀，足够我们日常开发，所以我们划掉 log4j2
+
+JCL：划掉JCL 主要是因为 日志实现上我们选择了 logback，而 logback和slf4j 毕竟是同一个作者写的，亲生的，合得来，而且在springboot 中 ，也是使用的  slf4j + logback，所以我们划掉了 JCL
+
+因此，最后剩下的就是我们 这篇博客的 内容了 ，如何配置和使用  SLF4j + logback
+
+2. 日志的使用
+2.1 在这里我们新建一个springboot项目做测试
+2.2 创建一个测试类，内容如下：
+package com.lonely;
+ 
+import lombok.extern.slf4j.Slf4j;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.junit4.SpringRunner;
+ 
+/**
+ * Created by 15072 on 2018/1/6.
+ */
+@RunWith(SpringRunner.class)
+@SpringBootTest
+public class LoggerTest {
+ 
+    private static Logger logger = LoggerFactory.getLogger(LoggerTest.class);
+ 
+    @Test
+    public void testLogger(){
+        logger.debug("debug：....");
+        logger.info("info...");
+        logger.error("error...");
+    }
+ 
+}
+在这里 ，我们需要在每个类中 创建一个 Logger对象，并且使用 当前类的类名来创建，那么 这个类名存在的意义在哪里？我们可以先运行 第一个测试，看下结果
+
+
+由上图可知，我们的类名在 日志中 是为了方便我们找到异常是在哪个类中，进行锁定，不信的话，我们可以在新建一个测试类， LoggerTest2,里面什么都不写， 然后将 LoggerFactory.getLogger(LoggerTest2.class); ，我们可以在测试一次，看看结果
+
+因此，使用类名创建的logger 的作用就是在这里，但是如果我们需要在每个类中都这样的创建一个logger对象，不方便，因此可以通过 一个注解来帮我们实现 那就是  @Slf4j ,该注解就可以帮我们自动创建一个 log对象
+
+但是 如果使用 @Slf4j 注解 需要两点，
+1.安装lombok插件  可参考http://blog.csdn.net/gx1058742912/article/details/51030060
+2.添加 lombok的依赖
+
+
+测试一下，编写测试方法
+@Test
+    public void testSl4j(){
+        log.debug("sl4j.debug...");
+        log.info("sl4j.info");
+        log.error("sl4j.error");
+    }
+
+这里的日志输出格式 是默认的，我们可以通过的教程 来配置 日志输出配置
+
+
+3. 日志的配置
+日志可以通过两种方法配置，一种是  application.yml配置，一种是  lobback-spring.xml配置
+
+3.1 application.yml配置，这种配置方法 配置项较少，一般有以下属性配置
+1. 配置输出格式 为  时间  -  消息  换行
+logging:
+  pattern:
+    console: "%d - %msg%n"
+
+2. 配置日志输出位置 比如磁盘 e盘
+
+logging:
+  pattern:
+    console: "%d - %msg%n"
+  path: e:/
+运行后，我们可以看到 在 e盘下生成了一个文件  spring.log  这文件是spring生成
+
+3. 配置日志输出文件 ，这样可以指定日志输出到哪个位置
+logging:
+  pattern:
+    console: "%d - %msg%n"
+  path: e:/
+  file: e:/sell.log
+我们可以看到 在e盘下生成了以下文件
+
+这里注意：我们可以配置日志保存位置，以及具体输出的文件，如果同时配置的话，会使用我们指定的file为主，可以测
+试，看e盘下具体生成什么文件
+
+4. 配置日志 输出级别
+日志一般主要看重的有5个级别，优先级如 DEBUG<INFO<WARN<ERROR<FATAL等，而springboot默认配置
+是 INFO级别，所以 我们测试代码中写了三行，在结果中我们只看到了 info 和 error的 因为 debug优先级比info低，所以我们
+看不到。那么我们配置一下格式 logging.level.包名或类名: 级别 即可， 举例如下
+logging:
+  pattern:
+    console: "%d - %msg%n"
+  #path: e:/
+  file: e:/sell.log
+  level:
+    #这里可以是包名也可以是类名
+    com.lonely: debug
+运行后，我们可以看到 原来只能看到 info 和 error 的，现在的debug也可以看到
+
+
+
+3.2 lobback-spring.xml 配置
+
+1. 我们先把 application.yml的关于日志的注释掉，新建一个文件  logback-spring.xml，为什么要取这个名字呢，Spring Boot官方推荐优先使用带有-spring的文件名作为你的日志配置（如使用logback-spring.xml，而不是logback.xml），如果我们想自定义名字，也可以，可以在 application.yml中通过  logging.config=classpath:/xxx.xml等方式配置。
+
+2.  注意几个 xml节点的含义
+appender：配置项，规则，通过这个节点内容配置，我们可以配置输出位置（控制台，文件），输出格式等
+root：根节点，表明整个项目基本的日志级别，里面可以应用多个appender规则
+     demo如下：
+<?xml version="1.0" encoding="utf-8" ?>
+<configuration>
+ 
+    <appender name="consoleLog" class="ch.qos.logback.core.ConsoleAppender">
+        <layout class="ch.qos.logback.classic.PatternLayout">
+            <pattern>%d -- %msg%n</pattern>
+        </layout>
+    </appender>
+ 
+    <root level="info">
+        <appender-ref ref="consoleLog" />
+    </root>
+</configuration>
+在上面的 logback-spring.xml中，appender配置了一个规则， ConsoleAppender表明日志输出到控制台，layout表明输出格式，root节点配置表明该项目基础的日志级别为info，引入 控制台输出的规则，那么我们运行看结果
+
+从结果上来看，配置的是 info级别，所以 debug的没有输出，现在如果我想把日志输出到文件怎么处理呢，可以使用如下配置，添加一个 appender规则，由于日志可能比较多，一般是按照日期来输出日志，因此如下配置了每天一个日志到指定位置
+<?xml version="1.0" encoding="utf-8" ?>
+<configuration>
+ 
+    <appender name="consoleLog" class="ch.qos.logback.core.ConsoleAppender">
+        <layout class="ch.qos.logback.classic.PatternLayout">
+            <pattern>%d -- %msg%n</pattern>
+        </layout>
+    </appender>
+ 
+    <appender name="fileInfoLog" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <encoder>
+            <pattern>%d -- %msg%n</pattern>
+        </encoder>
+        <!--滚动策略-->
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <!--路径-->
+            <fileNamePattern>e:/info-%d.log</fileNamePattern>
+        </rollingPolicy>
+    </appender>
+ 
+    <root level="info">
+        <appender-ref ref="consoleLog" />
+        <appender-ref ref="fileInfoLog"/>
+    </root>
+</configuration>
+3. 如果我们想 把 info 的日志 和  error的日志区分到两个文件放置，该怎么写呢？
+我们现在 在新建一个规则，结构如上图，只是在里面添加了一个过滤器，使用的是范围过滤，也就是拦截Error级别的信息，demo如下
+<?xml version="1.0" encoding="utf-8" ?>
+<configuration>
+ 
+    <appender name="consoleLog" class="ch.qos.logback.core.ConsoleAppender">
+        <layout class="ch.qos.logback.classic.PatternLayout">
+            <pattern>%d -- %msg%n</pattern>
+        </layout>
+    </appender>
+ 
+    <appender name="fileInfoLog" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <encoder>
+            <pattern>%d -- %msg%n</pattern>
+        </encoder>
+        <!--滚动策略-->
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <!--路径-->
+            <fileNamePattern>e:/info-%d.log</fileNamePattern>
+        </rollingPolicy>
+    </appender>
+ 
+    <appender name="fileErrorLog" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <!--添加 范围 过滤-->
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+        <encoder>
+            <pattern>%d -- %msg%n</pattern>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>e:/error-%d.log</fileNamePattern>
+        </rollingPolicy>
+    </appender>
+ 
+    <root level="info">
+        <appender-ref ref="consoleLog" />
+        <appender-ref ref="fileInfoLog"/>
+        <appender-ref ref="fileErrorLog"/>
+    </root>
+</configuration>
+运行后，我们可以在 e盘下的 error.log中看到 里面只有一条记录，关于error的记录，但是我们在info的那个文件中，依旧有info和error的信息，那么如果将info提取出来呢？ 能不能也想这样添加一个过滤器呢，测试一下，经过测试我们发现没有作用，因为拦截info，error还是会显示，因为error的优先级高，那么我们可以利用如下方法来处理，demo如下：
+
+<?xml version="1.0" encoding="utf-8" ?>
+<configuration>
+ 
+    <appender name="consoleLog" class="ch.qos.logback.core.ConsoleAppender">
+        <layout class="ch.qos.logback.classic.PatternLayout">
+            <pattern>%d -- %msg%n</pattern>
+        </layout>
+    </appender>
+ 
+    <appender name="fileInfoLog" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <!--要拦截的日志级别-->
+            <level>ERROR</level>
+            <!--如果匹配，则禁止-->
+            <onMatch>DENY</onMatch>
+            <!--如果不匹配，则允许记录-->
+            <onMismatch>ACCEPT</onMismatch>
+        </filter>
+        <encoder>
+            <pattern>%d -- %msg%n</pattern>
+        </encoder>
+        <!--滚动策略-->
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <!--路径-->
+            <fileNamePattern>e:/info-%d.log</fileNamePattern>
+        </rollingPolicy>
+    </appender>
+ 
+    <appender name="fileErrorLog" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <!--添加 范围 过滤-->
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+        <encoder>
+            <pattern>%d -- %msg%n</pattern>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>e:/error-%d.log</fileNamePattern>
+        </rollingPolicy>
+    </appender>
+ 
+    <root level="info">
+        <appender-ref ref="consoleLog" />
+        <appender-ref ref="fileInfoLog"/>
+        <appender-ref ref="fileErrorLog"/>
+    </root>
+</configuration>
+运行后，发现确实实现了  info 和 error的日志分开，但是 在上图例子中，虽然我们排除了 error，但是除开info，如果我们还有 warn级别的日志信息，还是会输出在 info.log文件中，因为warn优先级比info高，但是我们只是拦截了error而已。
+
+以上就是 关于  slf4j日志的总结，边学边敲边分享~
+
